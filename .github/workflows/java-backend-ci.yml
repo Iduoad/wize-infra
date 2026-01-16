@@ -21,6 +21,27 @@ on:
         type: string
         required: false
         default: "test"
+      image-tag:
+        type: string
+        required: false
+      push-image: 
+        type: boolean
+        default: false
+      app-name:
+        description: "Name of the application (used for artifacts and reports)"
+        type: string
+        default: "app"
+      docker-registry-url:
+        description: "Docker registry URL (e.g. rg.fr-par.scw.cloud/my-registry/)"
+        type: string
+        required: false
+      docker-registry-username:
+        description: "Docker registry username"
+        type: string
+        required: false
+    secrets:
+      docker-registry-password:
+        required: false
 
 jobs:
   build-and-verify:
@@ -54,4 +75,34 @@ jobs:
         uses: mikepenz/action-junit-report@v4
         with:
           report_paths: '**/surefire-reports/TEST-*.xml'
-          check_name: "Java Test Results"
+          check_name: "${{ inputs.app-name }} Test Results"
+
+      - name: Upload JAR
+        if: ${{ inputs.push-image }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.app-name }}-jar
+          path: target/*.jar
+
+  docker-build:
+    needs: build-and-verify
+    if: ${{ inputs.push-image }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.app-name }}-jar
+          path: target/
+          
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ inputs.docker-registry-url }}
+          username: ${{ inputs.docker-registry-username }}
+          password: ${{ secrets.docker-registry-password }}
+          
+      - uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ inputs.image-tag }}
