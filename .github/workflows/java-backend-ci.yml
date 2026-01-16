@@ -1,0 +1,56 @@
+name: Bewize Java Backend CI Standard
+
+on:
+  workflow_call:
+    inputs:
+      java-version:
+        required: false
+        type: string
+        default: '17'
+      working-directory:
+        required: false
+        type: string
+        default: '.'
+      maven-args:
+        description: "Arguments to pass to maven"
+        required: false
+        type: string
+        default: "clean verify"
+      spring-profile:
+        description: "The Spring profile to use (e.g., test, dev)"
+        required: false
+        default: "test"
+
+jobs:
+  build-and-verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
+      security-events: write
+
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK ${{ inputs.java-version }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ inputs.java-version }}
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Build with Maven
+        run: mvn ${{ inputs.maven-args }} --batch-mode --file pom.xml -Dspring.profiles.active=${{ inputs.spring-profile }}
+
+      - name: Publish Test Report
+        if: always()
+        uses: mikepenz/action-junit-report@v4
+        with:
+          report_paths: '**/surefire-reports/TEST-*.xml'
+          check_name: "Java Test Results"
