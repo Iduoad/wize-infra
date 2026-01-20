@@ -1,0 +1,113 @@
+name: Bewize Node.js Frontend CI
+
+on:
+  workflow_call:
+    inputs:
+      working-directory:
+        required: false
+        type: string
+        default: '.'
+      node-version:
+        required: false
+        type: string
+        default: '20'
+      app-name:
+        description: "Name of the application"
+        type: string
+        default: "app"
+      push-image: 
+        type: boolean
+        default: false
+      image-tag:
+        type: string
+        required: false
+      docker-registry-url:
+        description: "Docker registry URL"
+        type: string
+        required: false
+      docker-registry-username:
+        description: "Docker registry username"
+        type: string
+        required: false
+    secrets:
+      docker-registry-password:
+        required: false
+
+jobs:
+  build-and-test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js ${{ inputs.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: 'yarn' # Assuming yarn based on default, but can be npm if lockfile exists and cache assumes it. Actions/setup-node handles this well usually.
+
+      - name: Install Dependencies
+        run: yarn install
+
+      - name: Run Tests
+        run: yarn test 
+
+      - name: Build
+        run: yarn run build
+
+  docker-build:
+    name: Docker Build
+    needs: build-and-test
+    if: ${{ inputs.push-image }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+          
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ inputs.docker-registry-url }}
+          username: ${{ inputs.docker-registry-username }}
+          password: ${{ secrets.docker-registry-password }}
+          
+      - uses: docker/build-push-action@v5
+        with:
+          context: ${{ inputs.working-directory }}
+          push: true
+          tags: ${{ inputs.image-tag }}
+
+  end-to-end-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    needs: docker-build
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js ${{ inputs.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: 'yarn' # Assuming yarn based on default, but can be npm if lockfile exists and cache assumes it. Actions/setup-node handles this well usually.
+
+      - name: Install dependencies
+        run: npm install -g yarn && yarn
+
+      - name: Install Playwright Browsers
+        run: yarn playwright install --with-deps
+
+      - name: Wait for deployment to finish
+        run: sleep 360 # waits for 6 minutes
+
+      - name: Run Playwright tests
+        run: yarn playwright test --workers=1
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 30
