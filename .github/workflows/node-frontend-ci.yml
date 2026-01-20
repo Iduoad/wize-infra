@@ -68,7 +68,7 @@ jobs:
           report_paths: '**/junit.xml'
           check_name: "Test Results: ${{ inputs.app-name }}"
 
-      - name: Build
+      - name: Build Application
         run: yarn run build
 
   docker-build:
