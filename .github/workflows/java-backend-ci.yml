@@ -3,34 +3,34 @@ name: Bewize Java Backend CI Standard
 on:
   workflow_call:
     inputs:
-      java-version:
-        required: false
-        type: string
-        default: '17'
       working-directory:
         required: false
         type: string
         default: '.'
-      maven-args:
-        description: "Arguments to pass to maven"
+      java-version:
         required: false
         type: string
-        default: "clean verify"
+        default: '17'
       spring-profile:
         description: "The Spring profile to use (e.g., test, dev)"
         type: string
         required: false
         default: "test"
-      image-tag:
-        type: string
+      maven-args:
+        description: "Arguments to pass to maven"
         required: false
-      push-image: 
-        type: boolean
-        default: false
+        type: string
+        default: "clean verify"
       app-name:
         description: "Name of the application (used for artifacts and reports)"
         type: string
         default: "app"
+      push-image: 
+        type: boolean
+        default: false
+      image-tag:
+        type: string
+        required: false
       docker-registry-url:
         description: "Docker registry URL (e.g. rg.fr-par.scw.cloud/my-registry/)"
         type: string
@@ -45,6 +45,7 @@ on:
 
 jobs:
   build-and-verify:
+    name: Build and Verify
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -75,7 +76,7 @@ jobs:
         uses: mikepenz/action-junit-report@v4
         with:
           report_paths: '**/surefire-reports/TEST-*.xml'
-          check_name: "${{ inputs.app-name }} Test Results"
+          check_name: "Test Results: ${{ inputs.app-name }}"
 
       - name: Upload JAR
         if: ${{ inputs.push-image }}
@@ -85,6 +86,7 @@ jobs:
           path: target/*.jar
 
   docker-build:
+    name: Docker Build
     needs: build-and-verify
     if: ${{ inputs.push-image }}
     runs-on: ubuntu-latest
