@@ -81,6 +81,7 @@ jobs:
           tags: ${{ inputs.image-tag }}
 
   end-to-end-test:
+    name: End-to-end Tests
     runs-on: ubuntu-latest
     timeout-minutes: 60
     needs: docker-build
