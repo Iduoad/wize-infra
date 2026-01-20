@@ -37,6 +37,10 @@ jobs:
   build-and-test:
     name: Build and Test
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
     defaults:
       run:
         working-directory: ${{ inputs.working-directory }}
@@ -56,6 +60,13 @@ jobs:
 
       - name: Run Tests
         run: yarn test 
+
+      - name: Publish Test Report
+        if: always()
+        uses: mikepenz/action-junit-report@v4
+        with:
+          report_paths: '**/junit.xml'
+          check_name: "Test Results: ${{ inputs.app-name }}"
 
       - name: Build
         run: yarn run build
@@ -84,6 +95,10 @@ jobs:
     name: End-to-end Tests
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
     needs: docker-build
     steps:
       - uses: actions/checkout@v4
@@ -104,7 +119,16 @@ jobs:
         run: sleep 360 # waits for 6 minutes
 
       - name: Run Playwright tests
-        run: yarn playwright test --workers=1
+        run: yarn playwright test --workers=1 --reporter=junit
+        env:
+          PLAYWRIGHT_JUNIT_OUTPUT_NAME: playwright-report/junit.xml
+
+      - name: Publish Test Report
+        if: always()
+        uses: mikepenz/action-junit-report@v4
+        with:
+          report_paths: 'playwright-report/junit.xml'
+          check_name: "E2E Test Results: ${{ inputs.app-name }}"
 
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
